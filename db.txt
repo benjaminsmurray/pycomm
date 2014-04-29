@@ -1,0 +1,29 @@
+user collection
+{
+   _id: "joe1",
+    conversations: ["joe1%joe2%joe3","joe1%joe2"]  
+}
+{
+   _id: "joe2",
+    conversations: ["joe1%joe2%joe3","joe1%joe2"]  
+}
+
+
+
+conversations collection
+{
+    _id: "joe1%joe2%joe3"
+    messages: {
+                {
+                    from: "joe1",
+                    type: 1,
+                    body: "text, or reference",
+                },
+                {
+                    from "joe2",
+                    type: 2,
+                    body: "text or reference",
+                }
+                    
+            }
+}

@@ -1,5 +1,5 @@
 from flask import Flask
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask.ext.mongoengine import MongoEngine
 from flask.ext.script import Manager
 from flask.ext.migrate import Migrate, MigrateCommand
 from flask.ext.httpauth import HTTPBasicAuth
@@ -10,7 +10,8 @@ from config import basedir
 flaskApp = Flask(__name__)
 flaskApp.config.from_object('config')
 
-flaskdb  = SQLAlchemy(flaskApp)
+flaskdb  = MongoEngine()
+flaskdb.init_app(flaskApp)
 flaskAuth = HTTPBasicAuth()
 flaskMigrate = Migrate(flaskApp, flaskdb)
 flaskManager = Manager(flaskApp)

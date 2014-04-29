@@ -14,12 +14,13 @@ def new_user():
     password = request.json.get('password')
     if username is None or password is None:
         abort(400) # missing arguments
-    if models.User.query.filter_by(username = username).first() is not None:
+    if models.User.objects(_id = username).first() is not None:
         abort(400) # existing user
-    user = models.User(username = username)
+    user = models.User(_id = username)
     user.hash_password(password)
-    flaskdb.session.add(user)
-    flaskdb.session.commit()
+   # flaskdb.session.add(user)
+    #flaskdb.session.commit()
+    user.save()
     return jsonify({ "new user created":username})
 
 #send a message
@@ -33,8 +34,9 @@ def send_message():
     if recipient is None or body is None:
         abort(400) # missing args
     message = models.Message(body = body, author = author, recipient = recipient)
-    flaskdb.session.add(message)
-    flaskdb.session.commit()
+   # flaskdb.session.add(message)
+    #flaskdb.session.commit()
+    message.save()
     return jsonify({"message sent":body})
 
 @flaskApp.route('/token')

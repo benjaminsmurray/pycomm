@@ -5,10 +5,9 @@ from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, BadSigna
 from flask import g
 from datetime import datetime
 
-class User(flaskdb.Model):
-    id = flaskdb.Column(flaskdb.Integer, primary_key = True)
-    username = flaskdb.Column(flaskdb.String(64), unique = True)
-    password_hash = flaskdb.Column(flaskdb.String(128))
+class User(flaskdb.Document):
+    _id = flaskdb.StringField(max_length = 200, required = True, unique = True)
+    password_hash = flaskdb.StringField(required = True)
     
     def is_authenticated(self):
         return True
@@ -47,13 +46,12 @@ class User(flaskdb.Model):
     def __repr__(self):
         return '<User %r>' % (self.username)
 
-class Message(flaskdb.Model):
-    id = flaskdb.Column(flaskdb.Integer, primary_key = True)
-    send_date = flaskdb.Column(flaskdb.DateTime, nullable = False)
-    body = flaskdb.Column(flaskdb.Text, nullable = False)
-    author_id = flaskdb.Column(flaskdb.Integer, flaskdb.ForeignKey('user.id'), nullable = False)
-    author = flaskdb.relationship('User', backref=flaskdb.backref('messages', lazy='dynamic'))
-    recipient = flaskdb.Column(flaskdb.String(64), nullable = False)
+class Message(flaskdb.Document):
+    _id = flaskdb.StringField(primary_key = True)
+    send_date = flaskdb.DateTimeField(required = True, default=datetime.now)
+    body = flaskdb.StringField(required = True)
+    author = flaskdb.StringField(required = True)
+    recipient = flaskdb.ListField(required = True)
     def __init__(self, body, author, recipient):
         self.send_date = datetime.utcnow()
         self.body = body
