@@ -1,14 +1,17 @@
-from app import flaskdb, flaskAuth, flaskApp
+from mongoengine import *
 from passlib.apps import custom_app_context as pwd_context
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, BadSignature, SignatureExpired
 #g is global variable set by flaskauth, refers to user`
-from flask import g
 from datetime import datetime
+from app import auth
 
-class User(flaskdb.Document):
-    _id = flaskdb.StringField(max_length = 200, required = True, unique = True)
-    password_hash = flaskdb.StringField(required = True)
+class User(Document):
+    username = StringField(max_length = 256, required = True, primary_key = True)
+    password_hash = StringField(max_length = 256, min_length = 256, required = True)
     
+    def available_username(username):
+        return objects.findOne(username = username) is None
+
     def is_authenticated(self):
         return True
 
@@ -46,21 +49,18 @@ class User(flaskdb.Document):
     def __repr__(self):
         return '<User %r>' % (self.username)
 
-class Message(flaskdb.Document):
-    _id = flaskdb.StringField(primary_key = True)
-    send_date = flaskdb.DateTimeField(required = True, default=datetime.now)
-    body = flaskdb.StringField(required = True)
-    author = flaskdb.StringField(required = True)
-    recipient = flaskdb.ListField(required = True)
-    def __init__(self, body, author, recipient):
-        self.send_date = datetime.utcnow()
-        self.body = body
-        self.author = author
-        self.recipient = recipient
+class Message(Document):
+    _id = StringField(primary_key = True)
+    create_time = DateTimeField(required = True)
+    body = StringField(required = True)
+    author = StringField(required = True)
+    recipients_list = ListField(StringField(), required = True)
+    def __init__(self):
+        self.create_time = datetime.utcnow()
     def __repr__(self):
-        return '<Author %r, recipient %r>' % (self.author, self.recipient)
+        return '<Author %r, recipient %r>' % (self.author, self.recipients_list)
     
-@flaskAuth.verify_password
+@auth.verify_password
 def verify_password(username_or_token, password):
     # first try to authenticate by token
     user = User.verify_auth_token(username_or_token)
@@ -69,6 +69,6 @@ def verify_password(username_or_token, password):
         user = User.query.filter_by(username=username_or_token).first()
         if not user or not user.verify_password(password):
             return False
-    g.user = user
+    auth.g.user = user
     return True
 
