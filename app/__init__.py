@@ -10,7 +10,7 @@ import config
 flaskApp = Flask("pycomm")
 flaskApp.config.from_object('config')
 
-connect(config.MONGODB_SETTINGS)
+connect("pycommappdb")
 auth = HTTPBasicAuth()
 flaskManager = Manager(flaskApp)
 

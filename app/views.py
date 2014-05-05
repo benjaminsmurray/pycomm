@@ -1,5 +1,6 @@
-from flask import request, jsonify, g, url_for, abort, Flask
-from app import flaskApp, auth
+from flask import request, jsonify, url_for, abort, Flask
+from app import flaskApp, auth, models
+from datetime import datetime
 
 @flaskApp.route('/')
 @flaskApp.route('/index')
@@ -10,9 +11,10 @@ def index():
 #register a new user
 @flaskApp.route('/user', methods = ['POST'])
 def new_user():
-    username = request.get_json('username')
-    #TODO: assert username does not contain '@'
-    password = request.get_json('password')
+    request_json = request.get_json()
+    username = request_json['username']
+    #TODO: assert username does not contain '%'
+    password = request_json['password']
     if username is None or password is None:
         abort(400) # missing arguments
     if models.User.available_username(username = username) is False:
@@ -27,20 +29,31 @@ def new_user():
 @flaskApp.route('/message', methods = ['POST'])
 @auth.login_required
 def send_message():
-    body = request.get_json('body')
-    recipients = request.get_json('recipients')
-    #recipient list comes in as a string, a list of usernames separated by '@'
-    recipient_list = recipients.split("@")
-    author = auth.g.user
-    print(author)
-    if recipient is None or body is None:
+    request_json = request.get_json()
+    body = request_json['body']
+    recipients = request_json['recipients']
+    if recipients is None or body is None:
         abort(400) # missing args
-    message = models.Message(body = body, author = author, recipients = recipients_list)
+    #recipient list comes in as a string, a list of usernames separated by '%'
+    recipient_list = recipients.split("%")
+    #if auth.user.conversations.contais(recipients_list)    
+        #use objectID from map to find conversation ID
+        #add message to conversation
+    #else
+        #create conversation
+        #add new message to conversation
+        # insert conversation objectID into conversation map for each user in recipients list, including calling user
+    author = auth.user
+    message = models.Message()
+    message.body = body
+    message.author = author.username
+    message.recipients = recipient_list
+    message.create_time = datetime.utcnow()
     message.save()
     return jsonify({"message sent": body})
 
 @flaskApp.route('/token')
 @auth.login_required
 def get_auth_token():
-    token = g.user.generate_auth_token()
+    token = auth.user.generate_auth_token()
     return jsonify({ 'token': token.decode('ascii') })

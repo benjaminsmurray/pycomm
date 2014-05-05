@@ -1,3 +1,7 @@
+curl -u miguel:python -i -X POST -H "Content-Type: application/json" -d "{\"body\":\"messagebody\",\"recipients\":\"blah%blah2\"}" http://127.0.0.1:5000/message
+curl -i -X POST -H "Content-Type: application/json" -d '{"usernane":"user1","password":"blah%blah2"}' http://127.0.0.1:5000/message
+
+
 user collection
 {
    _id: "joe1",
@@ -12,7 +16,7 @@ user collection
 
 conversations collection
 {
-    _id: "joe1%joe2%joe3"
+    recipients: "joe1%joe2%joe3"
     messages: {
                 {
                     from: "joe1",

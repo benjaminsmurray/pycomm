@@ -3,12 +3,13 @@ from passlib.apps import custom_app_context as pwd_context
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, BadSignature, SignatureExpired
 #g is global variable set by flaskauth, refers to user`
 from datetime import datetime
-from app import auth
+from app import auth, flaskApp
 
 class User(Document):
     username = StringField(max_length = 256, required = True, primary_key = True)
     password_hash = StringField(max_length = 256, min_length = 256, required = True)
-    
+    #maps list of recipients to an objectid of the conversation between those recipients
+    conversations = MapField(field = ObjectIdField())
     def available_username(username):
         return objects.findOne(username = username) is None
 
@@ -36,39 +37,45 @@ class User(Document):
 
     @staticmethod
     def verify_auth_token(token):
-        s = Serializer(flaskApp.config['SECRET_KEY'])
+        serialized = Serializer(flaskApp.config['SECRET_KEY'])
         try:
-            data = s.loads(token)
+            data = serialized.loads(token)
         except SignatureExpired:
             return None # valid token, but expired
         except BadSignature:
             return None # invalid token
-        user = User.query.get(data['id'])
+        user = objects.first(username=data['id'])
         return user
     
     def __repr__(self):
         return '<User %r>' % (self.username)
 
-class Message(Document):
-    _id = StringField(primary_key = True)
+
+class Message(EmbeddedDocument):
     create_time = DateTimeField(required = True)
-    body = StringField(required = True)
+    text = StringField()
+    attachment = GenericReferenceField()
     author = StringField(required = True)
-    recipients_list = ListField(StringField(), required = True)
-    def __init__(self):
-        self.create_time = datetime.utcnow()
     def __repr__(self):
-        return '<Author %r, recipient %r>' % (self.author, self.recipients_list)
-    
+        return '<Author %r, recipients %r, text %r>' % (self.author, self.recipients, self.text)
+
+class Conversation(Document):
+    #'recipients' shouldnt be needed. can get recipient list from map of conversations in each user.
+    recipients = ListField(StringField(), required = True)
+    messages = ListField(EmbeddedDocumentField(Message))
+    def __repr__(self):
+        return '<recipients %r>' % (self.recipients)
+
+        
 @auth.verify_password
 def verify_password(username_or_token, password):
     # first try to authenticate by token
     user = User.verify_auth_token(username_or_token)
     if not user:
         # try to authenticate with username/password
-        user = User.query.filter_by(username=username_or_token).first()
+        user = User.objects(username = username_or_token).first()
         if not user or not user.verify_password(password):
             return False
-    auth.g.user = user
+    auth.user = user
     return True
 
