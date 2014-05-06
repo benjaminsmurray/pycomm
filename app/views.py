@@ -1,6 +1,8 @@
 from flask import request, jsonify, url_for, abort, Flask
-from app import flaskApp, auth, models
+from app import flaskApp, auth
+import app.models as models
 from datetime import datetime
+from mongoengine.errors import NotUniqueError
 
 @flaskApp.route('/')
 @flaskApp.route('/index')
@@ -9,21 +11,43 @@ def index():
     return ("hello")
 
 #register a new user
+'''
+new_user input json
+
+{'username': 'user1', 'password': 'blah%blah2'}
+
+output:
+{'created'}
+
+'''
+
 @flaskApp.route('/user', methods = ['POST'])
 def new_user():
     request_json = request.get_json()
     username = request_json['username']
-    #TODO: assert username does not contain '%'
     password = request_json['password']
+
     if username is None or password is None:
         abort(400) # missing arguments
-    if models.User.available_username(username = username) is False:
-        abort(400) # existing user
+    '''TODO:
+        The lines commented below check to see if the provided username already exists.
+        However, using this there is a race condition before the .save a at the end of the function,
+        So there is no gurantee a user does not get overwritten. So for now, I won't even pretend
+        To prevent user overwrites. Relying on 'unique' constraint set in the model on the 'username' field
+    '''
+    #if models.User.available_username(username = username) is False:
+     #   abort(400) # existing user
+
     #make the user object. 
-    new_user = models.User(username = username, password_hash = user.hash_password(password))
+    new_user = models.User(username = username)
+    new_user.set_password(password)
     #save to db
-    new_user.save()
-    return jsonify({ "new user created":username})
+    try:
+        new_user.save()
+        return jsonify({ "created":""})
+    except NotUniqueError:
+        print("not unique")
+        abort(400) #existing user   
 
 #send a message
 @flaskApp.route('/message', methods = ['POST'])
@@ -32,24 +56,26 @@ def send_message():
     request_json = request.get_json()
     body = request_json['body']
     recipients = request_json['recipients']
+
     if recipients is None or body is None:
         abort(400) # missing args
-    #recipient list comes in as a string, a list of usernames separated by '%'
-    recipient_list = recipients.split("%")
-    #if auth.user.conversations.contais(recipients_list)    
+    recipients_tuple = tuple(recipients)
+
+    message = models.Message(text = body, author = auth.user, create_time = datetime.utcnow())
+
+    if recipients_tuple in auth.user.conversations:
+        #conversation between recipients already exists
+        conversation_id = auth.user.conversations[recipients]
+        models.send_message(recipients_tuple, conversation_id, message)
+    else:
+        models.start_conversation(recipients_tuple, auth.user, message)
+        
         #use objectID from map to find conversation ID
         #add message to conversation
     #else
         #create conversation
         #add new message to conversation
         # insert conversation objectID into conversation map for each user in recipients list, including calling user
-    author = auth.user
-    message = models.Message()
-    message.body = body
-    message.author = author.username
-    message.recipients = recipient_list
-    message.create_time = datetime.utcnow()
-    message.save()
     return jsonify({"message sent": body})
 
 @flaskApp.route('/token')

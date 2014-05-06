@@ -6,12 +6,11 @@ from datetime import datetime
 from app import auth, flaskApp
 
 class User(Document):
-    username = StringField(max_length = 256, required = True, primary_key = True)
-    password_hash = StringField(max_length = 256, min_length = 256, required = True)
+    username = StringField(max_length = 256, required = True, unique = True)
+    password_hash = StringField(required = True)
     #maps list of recipients to an objectid of the conversation between those recipients
+    #key is a tuple, where index 0 is the number of recipients, and index 1 is the list of usernames
     conversations = MapField(field = ObjectIdField())
-    def available_username(username):
-        return objects.findOne(username = username) is None
 
     def is_authenticated(self):
         return True
@@ -25,7 +24,7 @@ class User(Document):
     def get_id(self):
         return unicode(self.id)
 
-    def hash_password(self, password):
+    def set_password(self, password):
         self.password_hash = pwd_context.encrypt(password)
     
     def verify_password(self, password):
@@ -55,14 +54,21 @@ class Message(EmbeddedDocument):
     create_time = DateTimeField(required = True)
     text = StringField()
     attachment = GenericReferenceField()
-    author = StringField(required = True)
+    author = ReferenceField(User, required = True)
     def __repr__(self):
         return '<Author %r, recipients %r, text %r>' % (self.author, self.recipients, self.text)
 
 class Conversation(Document):
     #'recipients' shouldnt be needed. can get recipient list from map of conversations in each user.
-    recipients = ListField(StringField(), required = True)
+    #recipients = ListField(StringField(), required = True)
     messages = ListField(EmbeddedDocumentField(Message))
+    
+    def get_conversations(conversation_id):
+        return objects.first(id = conversation_id)
+
+    def send_message(self, conversation_id, message):
+        self.messages.update_one(push__messages = message)
+
     def __repr__(self):
         return '<recipients %r>' % (self.recipients)
 
@@ -79,3 +85,22 @@ def verify_password(username_or_token, password):
     auth.user = user
     return True
 
+
+def available_username(username):
+   return User.objects(username = username).first() is None
+
+def send_message(recipients_tuple, conversation_id, message):
+    Conversation.objects(id = conversation_id).update_one(push__messages = message)
+
+
+def start_conversation(recipients_tuple, user, message):
+    new_conversation = Conversation(messages = [message]).save()
+    user.conversations = {str(recipients_tuple):new_conversation.id}
+    user.save()
+
+    for recipient_name in recipients_tuple:
+        recipient = User.objects(username = recipient_name).first()
+        if recipient:
+            recipient.conversations = {str(recipients_tuple):new_conversation.id}
+            recipient.save()
+    
